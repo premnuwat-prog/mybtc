@@ -1,0 +1,16 @@
+{
+  "name": "my-btc-cost",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Web app ส่วนตัวสำหรับดูต้นทุน BTC จากประวัติการซื้อบน Bitkub",
+  "scripts": {
+    "start": "node server.js",
+    "sync": "node scraper.mjs",
+    "publish-web": "node tools/encrypt-data.mjs && node tools/build-chart-data.mjs && git add docs && git commit -m 'อัปเดตข้อมูล' && git push"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "playwright-core": "^1.50.0"
+  }
+}

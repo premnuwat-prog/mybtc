@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "my-btc-cost",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 4780
+    }
+  ]
+}

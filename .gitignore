@@ -1,0 +1,5 @@
+node_modules/
+data/
+browser-profile/
+.encrypt-pass
+.DS_Store

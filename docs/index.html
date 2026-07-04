@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>My BTC Cost</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #2d333b;
+    --text: #e6edf3; --muted: #8b949e;
+    --green: #3fb950; --red: #f85149; --gold: #f7931a; --blue: #58a6ff;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    font-family: -apple-system, "Sukhumvit Set", "Noto Sans Thai", "Segoe UI", sans-serif;
+    padding: 24px; max-width: 1100px; margin: 0 auto;
+  }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { font-size: 1.5rem; }
+  h1 .btc { color: var(--gold); }
+  .spacer { flex: 1; }
+  button {
+    background: var(--gold); color: #111; border: 0; border-radius: 8px;
+    padding: 10px 18px; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { filter: brightness(1.1); }
+  button.secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .card .label { color: var(--muted); font-size: 0.8rem; margin-bottom: 6px; }
+  .card .value { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .card .sub { color: var(--muted); font-size: 0.78rem; margin-top: 4px; }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }
+  th, td { padding: 10px 14px; text-align: right; font-variant-numeric: tabular-nums; font-size: 0.88rem; }
+  th { background: #1c2128; color: var(--muted); font-weight: 600; }
+  td:first-child, th:first-child { text-align: left; }
+  tr + tr td { border-top: 1px solid var(--border); }
+  .side-buy { color: var(--green); font-weight: 700; }
+  .side-sell { color: var(--red); font-weight: 700; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0 !important; }
+  footer { color: var(--muted); font-size: 0.78rem; margin-top: 16px; }
+  .tablewrap { border: 1px solid var(--border); border-radius: 12px; overflow: auto; }
+  .chartcard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+  .chartcard .label { color: var(--muted); font-size: 0.8rem; margin-bottom: 8px; }
+  #chart { height: 480px; width: 100%; }
+  /* ---------- หน้าจอใส่รหัสผ่าน ---------- */
+  #lock {
+    position: fixed; inset: 0; background: var(--bg); z-index: 100;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  }
+  #lock .box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 36px; width: min(380px, 90vw); display: flex; flex-direction: column; gap: 14px;
+  }
+  #lock h2 { font-size: 1.2rem; text-align: center; }
+  #lock input[type="password"] {
+    background: #0a0d12; border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 12px; font-size: 1rem; font-family: inherit;
+  }
+  #lock label { color: var(--muted); font-size: 0.85rem; display: flex; gap: 8px; align-items: center; }
+  #lockErr { color: var(--red); font-size: 0.85rem; text-align: center; min-height: 1.2em; }
+</style>
+</head>
+<body>
+
+<div id="lock">
+  <div class="box">
+    <h2>🔐 My <span style="color:var(--gold)">BTC</span> Cost</h2>
+    <input type="password" id="passInput" placeholder="รหัสผ่าน" autofocus
+           onkeydown="if(event.key==='Enter')unlock()">
+    <label><input type="checkbox" id="remember" checked> จำรหัสไว้ในเครื่องนี้</label>
+    <div id="lockErr"></div>
+    <button onclick="unlock()">เปิดดูข้อมูล</button>
+  </div>
+</div>
+
+<header>
+  <h1>💰 My <span class="btc">BTC</span> Cost</h1>
+  <div class="spacer"></div>
+  <button class="secondary" onclick="lockNow()">🔒 ล็อก</button>
+</header>
+
+<div class="cards">
+  <div class="card"><div class="label">BTC ที่ถืออยู่</div><div class="value" id="holdBtc">–</div><div class="sub" id="buySum"></div></div>
+  <div class="card"><div class="label">ต้นทุนเฉลี่ย (฿/BTC)</div><div class="value" id="avgCost">–</div><div class="sub" id="costTotal"></div></div>
+  <div class="card"><div class="label">ราคาล่าสุด Bitkub</div><div class="value" id="price">–</div><div class="sub" id="priceAt"></div></div>
+  <div class="card"><div class="label">มูลค่าปัจจุบัน</div><div class="value" id="valueNow">–</div><div class="sub" id="realized"></div></div>
+  <div class="card"><div class="label">กำไร / ขาดทุน (ยังไม่ขาย)</div><div class="value" id="pnl">–</div><div class="sub" id="pnlPct"></div></div>
+</div>
+
+<div class="chartcard">
+  <div class="label">กราฟราคา BTC/THB รายวัน (4 ปี) + จุดที่ซื้อ — คลิกชื่อเส้นด้านบนเพื่อเปิด/ปิด</div>
+  <div id="chartMsg" style="color:var(--muted);font-size:0.85rem;text-align:center;padding:30px 0">กำลังโหลดกราฟ...</div>
+  <div id="chart" style="display:none"></div>
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>วันที่</th><th>ฝั่ง</th><th>ราคา (฿)</th><th>จำนวน (BTC)</th><th>มูลค่า (฿)</th><th>ที่มา</th></tr></thead>
+  <tbody id="rows"><tr><td class="empty" colspan="6">กำลังโหลด...</td></tr></tbody>
+</table>
+</div>
+
+<footer id="meta"></footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const fmt = (n, d = 2) => n == null || !isFinite(n) ? '–'
+  : n.toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtBtc = (n) => fmt(n, 8).replace(/0+$/, '').replace(/\.$/, '.0');
+
+let stats = null, lastPrice = null, allTrades = [], chartData = null, chart = null;
+
+// ---------- ถอดรหัสข้อมูล (AES-256-GCM, กุญแจจากรหัสผ่านผ่าน PBKDF2) ----------
+const b64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+async function decryptData(pass) {
+  const enc = await (await fetch('data.enc', { cache: 'no-store' })).json();
+  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: b64(enc.salt), iterations: enc.iter, hash: 'SHA-256' },
+    keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(enc.iv) }, key, b64(enc.ct));
+  return { ...JSON.parse(new TextDecoder().decode(plain)), updatedAt: enc.updatedAt };
+}
+
+async function unlock() {
+  const pass = $('passInput').value;
+  if (!pass) return;
+  $('lockErr').textContent = '';
+  try {
+    const data = await decryptData(pass);
+    if ($('remember').checked) localStorage.setItem('btc-pass', pass);
+    $('lock').style.display = 'none';
+    start(data);
+  } catch (e) {
+    localStorage.removeItem('btc-pass');
+    $('lockErr').textContent = e.message.includes('fetch') ? 'โหลดไฟล์ข้อมูลไม่ได้' : 'รหัสผ่านไม่ถูกต้อง';
+  }
+}
+
+function lockNow() {
+  localStorage.removeItem('btc-pass');
+  location.reload();
+}
+
+// ลองใช้รหัสที่จำไว้ในเครื่อง
+const saved = localStorage.getItem('btc-pass');
+if (saved) { $('passInput').value = saved; unlock(); }
+
+// ---------- คำนวณต้นทุนแบบถัวเฉลี่ย (ตรงกับ lib/trades.mjs ฝั่งเซิร์ฟเวอร์) ----------
+function computeStats(trades) {
+  let qty = 0, cost = 0, realized = 0, buyBtc = 0, buyThb = 0, sellBtc = 0, sellThb = 0;
+  for (const t of [...trades].sort((a, b) => a.ts - b.ts)) {
+    if (t.side === 'buy') { qty += t.btc; cost += t.thb; buyBtc += t.btc; buyThb += t.thb; }
+    else {
+      const avg = qty > 0 ? cost / qty : 0;
+      const sold = Math.min(t.btc, qty);
+      realized += t.thb - sold * avg;
+      cost -= sold * avg; qty -= sold;
+      sellBtc += t.btc; sellThb += t.thb;
+    }
+  }
+  return { holdingBtc: qty, holdingCostThb: cost, avgCost: qty > 0 ? cost / qty : 0,
+    realizedPnl: realized, buyBtc, buyThb, sellBtc, sellThb, tradeCount: trades.length };
+}
+
+function start(data) {
+  allTrades = (data.trades ?? []).sort((a, b) => b.ts - a.ts);
+  stats = computeStats(allTrades);
+  const meta = data.meta ?? {};
+
+  $('holdBtc').textContent = fmtBtc(stats.holdingBtc);
+  $('buySum').textContent = `ซื้อสะสม ${fmtBtc(stats.buyBtc)} BTC (${stats.tradeCount} รายการ)`;
+  $('avgCost').textContent = stats.avgCost ? '฿' + fmt(stats.avgCost, 0) : '–';
+  $('costTotal').textContent = `ต้นทุนรวม ฿${fmt(stats.holdingCostThb, 0)}`;
+  $('realized').textContent = stats.sellBtc > 0 ? `กำไรที่ขายแล้ว ฿${fmt(stats.realizedPnl, 0)}` : '';
+  $('meta').textContent = `ข้อมูลเทรดอัปเดตเมื่อ ${new Date(data.updatedAt ?? meta.lastSync).toLocaleString('th-TH')} — อัปเดตใหม่ได้จากเครื่องที่รันแอป (ปุ่มเผยแพร่ขึ้นเว็บ)`;
+
+  const tbody = $('rows');
+  tbody.innerHTML = allTrades.length ? allTrades.map(t => `<tr>
+      <td>${new Date(t.ts).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+      <td class="side-${t.side}">${t.side === 'buy' ? 'ซื้อ' : 'ขาย'}</td>
+      <td>${fmt(t.price, 0)}</td>
+      <td>${fmtBtc(t.btc)}</td>
+      <td>${fmt(t.thb)}</td>
+      <td style="color:var(--muted)">${t.source ?? ''}</td>
+    </tr>`).join('')
+    : '<tr><td class="empty" colspan="6">ยังไม่มีข้อมูล</td></tr>';
+
+  loadPrice();
+  setInterval(loadPrice, 60000);
+  loadChart();
+}
+
+// ---------- ราคาสดจาก Bitkub (CORS เปิดอยู่ เรียกตรงจากเบราว์เซอร์ได้) ----------
+async function loadPrice() {
+  try {
+    const j = await (await fetch('https://api.bitkub.com/api/market/ticker')).json();
+    lastPrice = Number(j.THB_BTC?.last) || null;
+    $('price').textContent = lastPrice ? '฿' + fmt(lastPrice, 0) : '–';
+    $('priceAt').textContent = lastPrice ? 'อัปเดต ' + new Date().toLocaleTimeString('th-TH') : 'ดึงราคาไม่ได้';
+  } catch { $('priceAt').textContent = 'ดึงราคาไม่ได้'; }
+  renderPnl();
+}
+
+function renderPnl() {
+  if (!stats || !lastPrice || stats.holdingBtc <= 0) return;
+  const value = stats.holdingBtc * lastPrice;
+  const pnl = value - stats.holdingCostThb;
+  const pct = stats.holdingCostThb > 0 ? pnl / stats.holdingCostThb * 100 : 0;
+  $('valueNow').textContent = '฿' + fmt(value, 0);
+  const el = $('pnl');
+  el.textContent = (pnl >= 0 ? '+' : '') + '฿' + fmt(pnl, 0);
+  el.className = 'value ' + (pnl >= 0 ? 'pos' : 'neg');
+  $('pnlPct').textContent = (pnl >= 0 ? '+' : '') + fmt(pct) + '%';
+  $('pnlPct').className = 'sub ' + (pnl >= 0 ? 'pos' : 'neg');
+}
+
+// ---------- กราฟ ----------
+async function loadChart() {
+  try {
+    const r = await fetch('chart-data.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('ไม่พบ chart-data.json');
+    chartData = await r.json();
+    renderChart();
+  } catch (e) {
+    $('chartMsg').textContent = 'โหลดกราฟไม่สำเร็จ: ' + e.message;
+  }
+}
+
+function renderChart() {
+  if (!chartData) return;
+  $('chartMsg').style.display = 'none';
+  $('chart').style.display = 'block';
+  if (!chart) {
+    chart = echarts.init($('chart'));
+    window.addEventListener('resize', () => chart.resize());
+  }
+  const D = chartData.days;
+  const px = (f) => D.map(d => [d.ts, d[f]]);
+
+  const buys = allTrades.filter(t => t.side === 'buy');
+  const sells = allTrades.filter(t => t.side === 'sell');
+  const maxThb = Math.max(...buys.map(t => t.thb), ...sells.map(t => t.thb), 1);
+  // จุดใหญ่ตามมูลค่าที่ซื้อ (สเกล sqrt ให้ต่างกันชัดแต่ไม่ล้นจอ)
+  const dot = (t) => 7 + 25 * Math.sqrt(t.thb / maxThb);
+  const scatter = (list) => list.map(t => ({ value: [t.ts, t.price], trade: t, symbolSize: dot(t) }));
+
+  const fmtM = (n) => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(0) + 'K' : n;
+  const series = [
+    { name: 'ราคา BTC', type: 'line', data: px('price'), showSymbol: false, color: '#f7931a', lineStyle: { width: 1.6 }, z: 3 },
+    { name: 'EMA12', type: 'line', data: px('ema12'), showSymbol: false, color: '#58a6ff', lineStyle: { width: 1.2 }, z: 3 },
+    { name: 'EMA26', type: 'line', data: px('ema26'), showSymbol: false, color: '#bc8cff', lineStyle: { width: 1.2 }, z: 3 },
+    { name: 'STH Realized Price', type: 'line', data: px('sth'), showSymbol: false, color: '#ff7b72', lineStyle: { width: 1.4, type: 'dashed' }, z: 2 },
+    { name: 'LTH Realized Price', type: 'line', data: px('lth'), showSymbol: false, color: '#3fb950', lineStyle: { width: 1.4, type: 'dashed' }, z: 2 },
+    { name: 'MVRV', type: 'line', yAxisIndex: 1, data: px('mvrv'), showSymbol: false, color: '#8b949e', lineStyle: { width: 1.2 }, z: 1 },
+    { name: 'จุดซื้อ', type: 'scatter', data: scatter(buys), color: '#2ea043', itemStyle: { borderColor: '#fff', borderWidth: 1, opacity: 0.9 }, z: 5 },
+  ];
+  if (sells.length) series.push({ name: 'จุดขาย', type: 'scatter', data: scatter(sells), color: '#f85149', itemStyle: { borderColor: '#fff', borderWidth: 1, opacity: 0.9 }, z: 5 });
+
+  chart.setOption({
+    backgroundColor: 'transparent',
+    animation: false,
+    legend: {
+      top: 0, textStyle: { color: '#e6edf3' }, inactiveColor: '#444c56',
+      data: series.map(s => s.name),
+    },
+    grid: { left: 60, right: 45, top: 40, bottom: 70 },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#1c2128', borderColor: '#2d333b', textStyle: { color: '#e6edf3', fontSize: 12 },
+      formatter: (params) => {
+        if (!params.length) return '';
+        const dt = new Date(params[0].value[0]).toLocaleDateString('th-TH', { dateStyle: 'medium' });
+        let html = `<b>${dt}</b>`;
+        for (const p of params) {
+          const v = p.value[1];
+          if (v == null) continue;
+          if (p.data.trade) {
+            const t = p.data.trade;
+            html += `<br>${p.marker}<b>${p.seriesName}</b> ${t.btc} BTC @ ฿${t.price.toLocaleString()} = ฿${t.thb.toLocaleString()}`;
+          } else if (p.seriesName === 'MVRV') {
+            html += `<br>${p.marker}${p.seriesName}: ${v.toFixed(2)}`;
+          } else {
+            html += `<br>${p.marker}${p.seriesName}: ฿${Math.round(v).toLocaleString()}`;
+          }
+        }
+        return html;
+      },
+    },
+    xAxis: { type: 'time', axisLine: { lineStyle: { color: '#2d333b' } }, axisLabel: { color: '#8b949e' } },
+    yAxis: [
+      {
+        type: 'value', scale: true, name: 'THB',
+        axisLabel: { color: '#8b949e', formatter: fmtM },
+        splitLine: { lineStyle: { color: '#21262d' } },
+      },
+      {
+        type: 'value', scale: true, name: 'MVRV', min: 0,
+        axisLabel: { color: '#8b949e' }, splitLine: { show: false },
+      },
+    ],
+    dataZoom: [
+      { type: 'inside', xAxisIndex: 0 },
+      { type: 'slider', xAxisIndex: 0, bottom: 8, height: 24, borderColor: '#2d333b', backgroundColor: '#161b22', fillerColor: 'rgba(247,147,26,0.15)', handleStyle: { color: '#f7931a' }, textStyle: { color: '#8b949e' } },
+    ],
+    series,
+  }, { notMerge: false });
+}
+</script>
+</body>
+</html>
