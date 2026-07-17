@@ -169,6 +169,19 @@ async function loadChart() {
   }
 }
 
+// หาจุดที่ EMA12 ตัด EMA26 (ตัดขึ้น = BUY, ตัดลง = SELL)
+function findEmaCrossSignals(days) {
+  const signals = [];
+  for (let i = 1; i < days.length; i++) {
+    const prev = days[i - 1], cur = days[i];
+    if (prev.ema12 == null || prev.ema26 == null || cur.ema12 == null || cur.ema26 == null) continue;
+    const prevDiff = prev.ema12 - prev.ema26, curDiff = cur.ema12 - cur.ema26;
+    if (prevDiff <= 0 && curDiff > 0) signals.push({ ts: cur.ts, y: cur.ema12, type: 'buy' });
+    else if (prevDiff >= 0 && curDiff < 0) signals.push({ ts: cur.ts, y: cur.ema12, type: 'sell' });
+  }
+  return signals;
+}
+
 function renderChart() {
   if (!chartData) return;
   $('chartMsg').style.display = 'none';
@@ -187,6 +200,17 @@ function renderChart() {
   const dot = (t) => 7 + 25 * Math.sqrt(t.thb / maxThb);
   const scatter = (list) => list.map(t => ({ value: [t.ts, t.price], trade: t, symbolSize: dot(t) }));
 
+  const emaSignals = findEmaCrossSignals(D);
+  const signalPoint = (type) => emaSignals.filter(s => s.type === type).map(s => ({
+    value: [s.ts, s.y], signal: type,
+    label: {
+      show: true, formatter: type === 'buy' ? 'BUY' : 'SELL',
+      position: type === 'buy' ? 'bottom' : 'top',
+      color: type === 'buy' ? '#3fb950' : '#f85149',
+      fontWeight: 700, fontSize: 10,
+    },
+  }));
+
   const fmtM = (n) => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(0) + 'K' : n;
   const series = [
     { name: 'ราคา BTC', type: 'line', data: px('price'), showSymbol: false, color: '#f7931a', lineStyle: { width: 1.6 }, z: 3 },
@@ -198,6 +222,10 @@ function renderChart() {
     { name: 'จุดซื้อ', type: 'scatter', data: scatter(buys), color: '#2ea043', itemStyle: { borderColor: '#fff', borderWidth: 1, opacity: 0.9 }, z: 5 },
   ];
   if (sells.length) series.push({ name: 'จุดขาย', type: 'scatter', data: scatter(sells), color: '#f85149', itemStyle: { borderColor: '#fff', borderWidth: 1, opacity: 0.9 }, z: 5 });
+  series.push(
+    { name: 'EMA ตัดขึ้น (BUY)', type: 'scatter', data: signalPoint('buy'), symbol: 'arrow', symbolSize: 11, symbolRotate: 0, color: '#3fb950', z: 6 },
+    { name: 'EMA ตัดลง (SELL)', type: 'scatter', data: signalPoint('sell'), symbol: 'arrow', symbolSize: 11, symbolRotate: 180, color: '#f85149', z: 6 },
+  );
 
   chart.setOption({
     backgroundColor: 'transparent',
@@ -220,6 +248,8 @@ function renderChart() {
           if (p.data.trade) {
             const t = p.data.trade;
             html += `<br>${p.marker}<b>${p.seriesName}</b> ${t.btc} BTC @ ฿${t.price.toLocaleString()} = ฿${t.thb.toLocaleString()}`;
+          } else if (p.data.signal) {
+            html += `<br>${p.marker}<b>${p.seriesName}</b> @ ฿${Math.round(v).toLocaleString()}`;
           } else if (p.seriesName === 'MVRV') {
             html += `<br>${p.marker}${p.seriesName}: ${v.toFixed(2)}`;
           } else {
