@@ -272,7 +272,7 @@ function renderChart() {
       },
     ],
     dataZoom: [
-      { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: false, moveOnMouseWheel: true, moveOnMouseMove: true },
+      { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: 'ctrl', moveOnMouseWheel: true, moveOnMouseMove: true },
       { type: 'slider', xAxisIndex: 0, bottom: 8, height: 24, borderColor: '#2d333b', backgroundColor: '#161b22', fillerColor: 'rgba(247,147,26,0.15)', handleStyle: { color: '#f7931a' }, textStyle: { color: '#8b949e' } },
     ],
     series,
