@@ -254,6 +254,21 @@ function renderChart() {
   if (!chart) {
     chart = echarts.init($('chart'));
     window.addEventListener('resize', () => chart.resize());
+    // scroll แนวนอน (สไลด์สองนิ้วซ้าย-ขวา หรือ shift+scroll) เท่านั้นที่เลื่อนกราฟ
+    // ส่วน scroll แนวตั้งปกติปล่อยให้หน้าเว็บเลื่อนตามปกติ, ctrl+scroll ให้ echarts จัดการซูมเอง
+    $('chart').addEventListener('wheel', (e) => {
+      if (e.ctrlKey) return;
+      const dx = e.deltaX || (e.shiftKey ? e.deltaY : 0);
+      if (!dx) return;
+      e.preventDefault();
+      const dz = chart.getOption().dataZoom[0];
+      const span = dz.end - dz.start;
+      const pct = (dx / $('chart').clientWidth) * span;
+      let start = dz.start + pct, end = dz.end + pct;
+      if (start < 0) { end -= start; start = 0; }
+      if (end > 100) { start -= (end - 100); end = 100; }
+      chart.dispatchAction({ type: 'dataZoom', start, end });
+    }, { passive: false });
   }
   const D = chartData.days;
   const px = (f) => D.map(d => [d.ts, d[f]]);
@@ -337,7 +352,7 @@ function renderChart() {
       },
     ],
     dataZoom: [
-      { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: 'ctrl', moveOnMouseWheel: true, moveOnMouseMove: true },
+      { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: 'ctrl', moveOnMouseWheel: false, moveOnMouseMove: true },
       { type: 'slider', xAxisIndex: 0, bottom: 8, height: 24, borderColor: '#2d333b', backgroundColor: '#161b22', fillerColor: 'rgba(247,147,26,0.15)', handleStyle: { color: '#f7931a' }, textStyle: { color: '#8b949e' } },
     ],
     series,
