@@ -61,7 +61,8 @@
 <header>
   <h1>💰 My <span class="btc">BTC</span> Cost</h1>
   <div class="spacer"></div>
-  <button id="syncBtn" onclick="startSync()">⟳ ดึงข้อมูลจาก Bitkub</button>
+  <button id="syncBtn" onclick="startSync('/api/sync')">⟳ ดึงผ่าน Bitkub API</button>
+  <button class="secondary" id="browserSyncBtn" onclick="startSync('/api/sync-browser')">เปิดหน้า Bitkub</button>
   <button class="secondary" onclick="document.getElementById('csvFile').click()">นำเข้า CSV</button>
   <button class="secondary" id="pubBtn" onclick="publish()">⬆ เผยแพร่ขึ้นเว็บ</button>
   <input type="file" id="csvFile" accept=".csv,.txt" hidden onchange="importCsv(this)">
@@ -113,7 +114,7 @@ async function loadPortfolio() {
   $('realized').textContent = s.sellBtc > 0 ? `กำไรที่ขายแล้ว ฿${fmt(s.realizedPnl, 0)}` : '';
   $('meta').textContent = meta.lastSync
     ? `ดึงข้อมูลล่าสุด ${new Date(meta.lastSync).toLocaleString('th-TH')} (${meta.lastSyncMethod ?? ''})`
-    : 'ยังไม่เคยดึงข้อมูล — กดปุ่ม "ดึงข้อมูลจาก Bitkub" แล้วล็อกอินในหน้าต่างที่เปิดขึ้น';
+    : 'ยังไม่เคยดึงข้อมูล — ตั้งค่า Bitkub API แล้วกดปุ่ม "ดึงผ่าน Bitkub API"';
 
   const tbody = $('rows');
   if (!trades.length) {
@@ -296,10 +297,14 @@ function renderChart() {
 
 // ---------- ปุ่ม Sync ----------
 let polling = null;
-async function startSync() {
-  const r = await fetch('/api/sync', { method: 'POST' });
-  if (!r.ok && r.status !== 409) return alert('เริ่มดึงข้อมูลไม่สำเร็จ');
+async function startSync(endpoint = '/api/sync') {
+  const r = await fetch(endpoint, { method: 'POST' });
+  if (!r.ok && r.status !== 409) {
+    const j = await r.json().catch(() => ({}));
+    return alert('เริ่มดึงข้อมูลไม่สำเร็จ: ' + (j.error ?? r.status));
+  }
   $('syncBtn').disabled = true;
+  $('browserSyncBtn').disabled = true;
   $('syncLog').style.display = 'block';
   clearInterval(polling);
   polling = setInterval(pollSync, 1500);
@@ -313,6 +318,7 @@ async function pollSync() {
   if (!s.running && s.exitCode !== null) {
     clearInterval(polling);
     $('syncBtn').disabled = false;
+    $('browserSyncBtn').disabled = false;
     loadPortfolio();
   }
 }
