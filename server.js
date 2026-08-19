@@ -54,7 +54,7 @@ app.get('/api/chart', async (req, res) => {
   }
 });
 
-// ---------- ปุ่ม Sync: รันสคริปต์ดึงข้อมูลจากหน้าเว็บ Bitkub ----------
+// ---------- ปุ่ม Sync: อ่านประวัติผ่าน Bitkub API (ค่าเริ่มต้น) ----------
 const sync = { running: false, startedAt: null, log: [], exitCode: null };
 const pushLog = (line) => {
   for (const l of String(line).split('\n')) {
@@ -65,6 +65,21 @@ const pushLog = (line) => {
 };
 
 app.post('/api/sync', (req, res) => {
+  if (sync.running) return res.status(409).json({ error: 'กำลังดึงข้อมูลอยู่แล้ว' });
+  sync.running = true;
+  sync.startedAt = Date.now();
+  sync.log = [];
+  sync.exitCode = null;
+  const child = spawn(process.execPath, [path.join(ROOT, 'bitkub-api-sync.mjs')], { cwd: ROOT });
+  child.stdout.on('data', pushLog);
+  child.stderr.on('data', pushLog);
+  child.on('close', (code) => { sync.running = false; sync.exitCode = code; });
+  child.on('error', (e) => { sync.running = false; sync.exitCode = 1; pushLog(`รันสคริปต์ไม่ได้: ${e.message}`); });
+  res.json({ started: true });
+});
+
+// แผนสำรองเดิม: เปิดหน้า History และให้ผู้ใช้ล็อกอินเอง
+app.post('/api/sync-browser', (req, res) => {
   if (sync.running) return res.status(409).json({ error: 'กำลังดึงข้อมูลอยู่แล้ว' });
   sync.running = true;
   sync.startedAt = Date.now();
