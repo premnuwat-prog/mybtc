@@ -113,7 +113,7 @@ app.post('/api/publish', (req, res) => {
   if (publishing) return res.status(409).json({ error: 'กำลังเผยแพร่อยู่แล้ว' });
   publishing = true;
   const child = spawn('bash', ['-c',
-    'node tools/encrypt-data.mjs && node tools/build-chart-data.mjs' +
+    'node tools/encrypt-data.mjs && node tools/build-chart-data.mjs && node tools/build-price-data.mjs' +
     ' && git add docs && (git diff --cached --quiet || git commit -m "อัปเดตข้อมูล") && git push',
   ], { cwd: ROOT });
   let out = '';

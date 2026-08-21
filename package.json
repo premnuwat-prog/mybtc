@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "sync": "node scraper.mjs",
-    "publish-web": "node tools/encrypt-data.mjs && node tools/build-chart-data.mjs && git add docs && git commit -m 'อัปเดตข้อมูล' && git push",
+    "publish-web": "node tools/encrypt-data.mjs && node tools/build-chart-data.mjs && node tools/build-price-data.mjs && git add docs && git commit -m 'อัปเดตข้อมูล' && git push",
     "test": "node --test",
     "sync:api": "node bitkub-api-sync.mjs"
   },

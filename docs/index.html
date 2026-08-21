@@ -198,14 +198,29 @@ function start(data) {
   loadChart();
 }
 
-// ---------- ราคาสดจาก Bitkub (CORS เปิดอยู่ เรียกตรงจากเบราว์เซอร์ได้) ----------
+// ---------- ราคาสด ----------
+// local server ใช้ /api/price แบบ proxy ไป Bitkub
+// GitHub Pages ใช้ docs/price-data.json ที่อัปเดตโดย GitHub Action
 async function loadPrice() {
+  const isLocal = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+  const endpoint = isLocal ? '/api/price' : 'price-data.json';
   try {
-    const j = await (await fetch('https://api.bitkub.com/api/market/ticker')).json();
-    lastPrice = Number(j.THB_BTC?.last) || null;
+    const j = await (await fetch(endpoint, { cache: 'no-store' })).json();
+    lastPrice = Number(j.last ?? j.THB_BTC?.last) || null;
+    const at = j.at ?? j.updatedAt ?? Date.now();
     $('price').textContent = lastPrice ? '฿' + fmt(lastPrice, 0) : '–';
-    $('priceAt').textContent = lastPrice ? 'อัปเดต ' + new Date().toLocaleTimeString('th-TH') : 'ดึงราคาไม่ได้';
-  } catch { $('priceAt').textContent = 'ดึงราคาไม่ได้'; }
+    $('priceAt').textContent = lastPrice ? 'อัปเดต ' + new Date(at).toLocaleString('th-TH') : 'ดึงราคาไม่ได้';
+  } catch {
+    // fallback: ถ้าไฟล์ static ยังไม่อัปเดต/เปิดใน local แบบไม่มี api ให้ลอง Bitkub ตรง ๆ เป็นครั้งสุดท้าย
+    try {
+      const j = await (await fetch('https://api.bitkub.com/api/market/ticker')).json();
+      lastPrice = Number(j.THB_BTC?.last) || null;
+      $('price').textContent = lastPrice ? '฿' + fmt(lastPrice, 0) : '–';
+      $('priceAt').textContent = lastPrice ? 'อัปเดต ' + new Date().toLocaleTimeString('th-TH') : 'ดึงราคาไม่ได้';
+    } catch {
+      $('priceAt').textContent = 'ดึงราคาไม่ได้';
+    }
+  }
   renderPnl();
 }
 
