@@ -46,7 +46,9 @@
   footer { color: var(--muted); font-size: 0.78rem; margin-top: 16px; }
   .tablewrap { border: 1px solid var(--border); border-radius: 12px; overflow: auto; }
   .chartcard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
-  .chartcard .label { color: var(--muted); font-size: 0.8rem; margin-bottom: 8px; }
+  .charthead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .charthead .label { margin-bottom: 0; }
+  .chartbtn { padding: 8px 12px; font-size: 0.85rem; white-space: nowrap; }
   #chart { height: 480px; width: 100%; }
   /* ---------- หน้าจอใส่รหัสผ่าน ---------- */
   #lock {
@@ -94,7 +96,10 @@
 </div>
 
 <div class="chartcard">
-  <div class="label">กราฟราคา BTC/THB รายวัน (4 ปี) + จุดที่ซื้อ — คลิกชื่อเส้นด้านบนเพื่อเปิด/ปิด</div>
+  <div class="charthead">
+    <div class="label">กราฟราคา BTC/THB รายวัน (4 ปี) + จุดที่ซื้อ — คลิกชื่อเส้นด้านบนเพื่อเปิด/ปิด</div>
+    <button class="secondary chartbtn" id="fsBtn" onclick="toggleChartFullscreen()">⛶ Full screen</button>
+  </div>
   <div id="chartMsg" style="color:var(--muted);font-size:0.85rem;text-align:center;padding:30px 0">กำลังโหลดกราฟ...</div>
   <div id="chart" style="display:none"></div>
 </div>
@@ -261,6 +266,29 @@ function findEmaCrossSignals(days) {
   }
   return signals;
 }
+
+async function toggleChartFullscreen() {
+  const card = $('chart').closest('.chartcard');
+  const entering = !document.fullscreenElement;
+  try {
+    if (entering) {
+      await (card.requestFullscreen?.() ?? Promise.reject(new Error('Fullscreen ไม่รองรับ')));
+    } else {
+      await document.exitFullscreen();
+    }
+  } catch (e) {
+    alert('เปิด Full screen ไม่ได้: ' + e.message);
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const fs = !!document.fullscreenElement;
+  const btn = $('fsBtn');
+  const el = $('chart');
+  if (btn) btn.textContent = fs ? '⤢ Exit full screen' : '⛶ Full screen';
+  if (el) el.style.height = fs ? 'calc(100vh - 140px)' : '480px';
+  if (chart) chart.resize();
+});
 
 function renderChart() {
   if (!chartData) return;
