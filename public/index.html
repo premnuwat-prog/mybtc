@@ -236,6 +236,8 @@ function renderChart() {
   }
   const D = chartData.days;
   const px = (f) => D.map(d => [d.ts, d[f]]);
+  const avgCost = stats?.avgCost > 0 ? stats.avgCost : null;
+  const avgCostLine = avgCost == null ? [] : D.map(d => [d.ts, avgCost]);
 
   const buys = allTrades.filter(t => t.side === 'buy');
   const sells = allTrades.filter(t => t.side === 'sell');
@@ -258,6 +260,7 @@ function renderChart() {
   const fmtM = (n) => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(0) + 'K' : n;
   const series = [
     { name: 'ราคา BTC', type: 'line', data: px('price'), showSymbol: false, color: '#f7931a', lineStyle: { width: 1.6 }, z: 3 },
+    { name: 'ต้นทุนเฉลี่ยของฉัน', type: 'line', data: avgCostLine, showSymbol: false, color: '#ffd166', lineStyle: { width: 1.8, type: 'dashed' }, z: 4 },
     { name: 'EMA12', type: 'line', data: px('ema12'), showSymbol: false, color: '#58a6ff', lineStyle: { width: 1.2 }, z: 3 },
     { name: 'EMA26', type: 'line', data: px('ema26'), showSymbol: false, color: '#bc8cff', lineStyle: { width: 1.2 }, z: 3 },
     { name: 'STH Realized Price', type: 'line', data: px('sth'), showSymbol: false, color: '#ff7b72', lineStyle: { width: 1.4, type: 'dashed' }, z: 2 },
