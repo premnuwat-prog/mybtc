@@ -73,6 +73,7 @@
 <header>
   <h1>💰 My <span class="btc">BTC</span> Cost</h1>
   <div class="spacer"></div>
+  <button class="secondary" id="refreshPriceBtn" onclick="refreshPrice()">⟳ Refresh ราคา BTC</button>
   <button id="syncBtn" onclick="startSync('/api/sync')">⟳ ดึงผ่าน Bitkub API</button>
   <button class="secondary" id="browserSyncBtn" onclick="startSync('/api/sync-browser')">เปิดหน้า Bitkub</button>
   <button class="secondary" onclick="document.getElementById('csvFile').click()">นำเข้า CSV</button>
@@ -149,12 +150,23 @@ async function loadPortfolio() {
 
 async function loadPrice() {
   try {
-    const { last } = await (await fetch('/api/price')).json();
+    const r = await fetch('/api/price', { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const { last, at } = await r.json();
     lastPrice = last;
     $('price').textContent = last ? '฿' + fmt(last, 0) : '–';
-    $('priceAt').textContent = last ? 'อัปเดต ' + new Date().toLocaleTimeString('th-TH') : 'ดึงราคาไม่ได้';
+    $('priceAt').textContent = last ? 'Bitkub • อัปเดต ' + new Date(at ?? Date.now()).toLocaleTimeString('th-TH') : 'ดึงราคาไม่ได้';
   } catch { $('priceAt').textContent = 'ดึงราคาไม่ได้'; }
   renderPnl();
+}
+
+async function refreshPrice() {
+  const btn = $('refreshPriceBtn');
+  btn.disabled = true;
+  btn.textContent = 'กำลัง Refresh...';
+  await loadPrice();
+  btn.disabled = false;
+  btn.textContent = '⟳ Refresh ราคา BTC';
 }
 
 function renderPnl() {

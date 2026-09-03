@@ -28,6 +28,7 @@
     font-family: inherit;
   }
   button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: 0.5; cursor: wait; }
   button.secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 20px; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
@@ -94,13 +95,14 @@
 <header>
   <h1>💰 My <span class="btc">BTC</span> Cost</h1>
   <div class="spacer"></div>
+  <button class="secondary" id="refreshPriceBtn" onclick="refreshPrice()">⟳ Refresh ราคา BTC</button>
   <button class="secondary" onclick="lockNow()">🔒 ล็อก</button>
 </header>
 
 <div class="cards">
   <div class="card"><div class="label">BTC ที่ถืออยู่</div><div class="value" id="holdBtc">–</div><div class="sub" id="buySum"></div></div>
   <div class="card"><div class="label">ต้นทุนเฉลี่ย (฿/BTC)</div><div class="value" id="avgCost">–</div><div class="sub" id="costTotal"></div></div>
-  <div class="card"><div class="label">ราคาล่าสุด Bitkub</div><div class="value" id="price">–</div><div class="sub" id="priceAt"></div></div>
+  <div class="card"><div class="label">ราคาล่าสุด BTC/THB</div><div class="value" id="price">–</div><div class="sub" id="priceAt"></div></div>
   <div class="card"><div class="label">มูลค่าปัจจุบัน</div><div class="value" id="valueNow">–</div><div class="sub" id="realized"></div></div>
   <div class="card"><div class="label">กำไร / ขาดทุน (ยังไม่ขาย)</div><div class="value" id="pnl">–</div><div class="sub" id="pnlPct"></div></div>
 </div>
@@ -214,29 +216,48 @@ function start(data) {
 }
 
 // ---------- ราคาสด ----------
-// local server ใช้ /api/price แบบ proxy ไป Bitkub
-// GitHub Pages ใช้ docs/price-data.json ที่อัปเดตโดย GitHub Action
-async function loadPrice() {
+// ปกติ GitHub Pages ใช้ไฟล์จาก GitHub Action; เมื่อกด Refresh ใช้ CoinGecko เพื่อให้ได้ราคาสดผ่าน CORS
+async function loadPrice(forceFresh = false) {
   const isLocal = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
-  const endpoint = isLocal ? '/api/price' : 'price-data.json';
-  try {
-    const j = await (await fetch(endpoint, { cache: 'no-store' })).json();
-    lastPrice = Number(j.last ?? j.THB_BTC?.last) || null;
-    const at = j.at ?? j.updatedAt ?? Date.now();
-    $('price').textContent = lastPrice ? '฿' + fmt(lastPrice, 0) : '–';
-    $('priceAt').textContent = lastPrice ? 'อัปเดต ' + new Date(at).toLocaleString('th-TH') : 'ดึงราคาไม่ได้';
-  } catch {
-    // fallback: ถ้าไฟล์ static ยังไม่อัปเดต/เปิดใน local แบบไม่มี api ให้ลอง Bitkub ตรง ๆ เป็นครั้งสุดท้าย
+  const live = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=thb';
+  const sources = isLocal
+    ? [{ endpoint: '/api/price', source: 'Bitkub', parse: j => j.last, at: j => j.at }]
+    : forceFresh
+      ? [
+          { endpoint: live, source: 'CoinGecko', parse: j => j.bitcoin?.thb, at: () => Date.now() },
+          { endpoint: 'price-data.json', source: 'Bitkub', parse: j => j.last ?? j.THB_BTC?.last, at: j => j.at ?? j.updatedAt },
+        ]
+      : [
+          { endpoint: 'price-data.json', source: 'Bitkub', parse: j => j.last ?? j.THB_BTC?.last, at: j => j.at ?? j.updatedAt },
+          { endpoint: live, source: 'CoinGecko', parse: j => j.bitcoin?.thb, at: () => Date.now() },
+        ];
+
+  let loaded = null;
+  for (const candidate of sources) {
     try {
-      const j = await (await fetch('https://api.bitkub.com/api/market/ticker')).json();
-      lastPrice = Number(j.THB_BTC?.last) || null;
-      $('price').textContent = lastPrice ? '฿' + fmt(lastPrice, 0) : '–';
-      $('priceAt').textContent = lastPrice ? 'อัปเดต ' + new Date().toLocaleTimeString('th-TH') : 'ดึงราคาไม่ได้';
-    } catch {
-      $('priceAt').textContent = 'ดึงราคาไม่ได้';
-    }
+      const r = await fetch(candidate.endpoint, { cache: 'no-store' });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const price = Number(candidate.parse(j)) || null;
+      if (price) { loaded = { price, source: candidate.source, at: candidate.at(j) ?? Date.now() }; break; }
+    } catch { /* ลองแหล่งสำรอง */ }
   }
+
+  lastPrice = loaded?.price ?? null;
+  $('price').textContent = lastPrice ? '฿' + fmt(lastPrice, 0) : '–';
+  $('priceAt').textContent = loaded
+    ? `${loaded.source} • อัปเดต ${new Date(loaded.at).toLocaleString('th-TH')}`
+    : 'ดึงราคาไม่ได้';
   renderPnl();
+}
+
+async function refreshPrice() {
+  const btn = $('refreshPriceBtn');
+  btn.disabled = true;
+  btn.textContent = 'กำลัง Refresh...';
+  await loadPrice(true);
+  btn.disabled = false;
+  btn.textContent = '⟳ Refresh ราคา BTC';
 }
 
 function renderPnl() {
